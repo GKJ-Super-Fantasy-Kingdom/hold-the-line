@@ -2,7 +2,7 @@
 
 ## 0.1.4
 
-Place the wager buttons directly below the coin summary by removing the shortcut legend.
+First public release. Stake 1 coin before battle and receive 3 coins total for a clean night. A damaging hit loses the stake even after a repair. The two wager buttons sit directly below the coin summary at both UI scales.
 
 ## 0.1.3
 

@@ -8,9 +8,9 @@ Use the mouse or move between the two buttons with the controller and press the 
 
 ## Development
 
-Version 0.1.2 is a local playtest build. Use a separate BepInEx 5 profile and a copied save. A mod profile alone does not isolate Unity's save directory.
+Version 0.1.3 is a local playtest build. Use a separate BepInEx 5 profile and a copied save. A mod profile alone does not isolate Unity's save directory.
 
-Build with the .NET SDK, Python and Pillow. Set the environment variables `GameDir` to the game installation and `ProfileDir` to the local BepInEx profile. Run `python package.py` to build and verify `dist/HoldTheLine-0.1.2.zip`. Import that ZIP into the test profile, or place its `plugins/HoldTheLine.dll` under the profile's `BepInEx/plugins` directory.
+Build with the .NET SDK, Python and Pillow. Set the environment variables `GameDir` to the game installation and `ProfileDir` to the local BepInEx profile. Run `python package.py` to build and verify `dist/HoldTheLine-0.1.3.zip`. Import that ZIP into the test profile, or place its `plugins/HoldTheLine.dll` under the profile's `BepInEx/plugins` directory.
 
 Run `dotnet run --project tests/WagerChecks.csproj -c Release -- "<copied game.data>"` for the wager and checkpoint checks. With the DLL at `BepInEx/plugins/HoldTheLine.dll`, run `pwsh -File tests/VerifyRuntime.ps1 -GameDir "<game>" -ProfileDir "<profile>" -CopiedSave "<copied game.data>"` for installed-assembly and packed-plugin checks.
 

@@ -80,6 +80,8 @@ namespace HoldTheLine
             var localized = title.GetComponent<LocalizeStringEvent>();
             if (localized != null) localized.enabled = false;
             title.text = "Hold the Line";
+            // The ribbon's text pivot sits above the center of its painted face.
+            title.rectTransform.anchoredPosition += Vector2.down * 4f;
             foreach (var graphic in banner.GetComponentsInChildren<Graphic>()) graphic.raycastTarget = false;
         }
 

@@ -1,6 +1,6 @@
 {
   "name": "HoldTheLine",
-  "version_number": "0.1.0",
+  "version_number": "0.1.1",
   "website_url": "https://github.com/GKJ-Super-Fantasy-Kingdom/hold-the-line",
   "description": "Stake 1 coin before battle. Keep the Castle Wall unharmed through the night and collect 3 coins.",
   "dependencies": [

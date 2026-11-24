@@ -112,6 +112,16 @@ namespace HoldTheLine
             var action = Submit;
             int index = string.IsNullOrEmpty(scheme) ? -1 : action?.GetBindingIndex(scheme) ?? -1;
             glyph.sprite = index < 0 ? null : pad.GetButtonPrompt(action.bindings[index].effectivePath);
+            // UI/Submit can resolve through the generic */{Submit} usage.
+            if (glyph.sprite == null && action != null)
+            {
+                foreach (var control in action.controls)
+                {
+                    if (!(control.device is Gamepad)) continue;
+                    glyph.sprite = pad.GetButtonPrompt("<Gamepad>/" + control.name);
+                    if (glyph.sprite != null) break;
+                }
+            }
             glyph.gameObject.SetActive(glyph.sprite != null);
             hint.text = glyph.sprite == null && index >= 0 ? action.GetBindingDisplayString(index) + "  Select" : "Select";
         }

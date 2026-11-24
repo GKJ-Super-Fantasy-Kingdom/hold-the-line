@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.5
+
+Updated the package icon to show the Castle Wall and the gold wager coin.
+
 ## 0.1.4
 
 First public release. Stake 1 coin before battle and receive 3 coins total for a clean night. A damaging hit loses the stake even after a repair. The two wager buttons sit directly below the coin summary at both UI scales.

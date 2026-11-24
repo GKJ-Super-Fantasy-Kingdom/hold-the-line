@@ -44,6 +44,10 @@ internal static class Program
         Check(!Wager.CanOffer(null, run, day, false, true), "no wall");
         Check(!Wager.CanOffer(null, run, day, true, false), "too late to enter");
         var wager = Offer();
+        var pending = Load(Save(wager));
+        Check(Wager.CanOffer(pending, run, day, true, true) && coins == start,
+            "unanswered checkpoint reopens the free decision");
+        Check(!Wager.CanOffer(pending, run, day, true, false), "unanswered offer expires at battle");
         Check(!wager.Accept(0, Change) && coins == start, "insufficient funds");
         wager.Pass();
         var declined = Load(Save(wager));
@@ -56,6 +60,7 @@ internal static class Program
         string staked = Save(wager);
         wager = Load(staked);
         Check(!wager.Accept(coins, Change) && coins == start - 1, "no second charge on resume");
+        Check(!Wager.CanOffer(wager, run, day, true, true), "accepted checkpoint cannot reopen the offer");
         wager.Hit(30, 30);
         Check(wager.State == Decision.Staked, "shield or zero-damage hit");
         wager.Hit(30, 24);

@@ -16,7 +16,7 @@ namespace HoldTheLine
 
         internal static bool CanOffer(Wager previous, string run, int day, bool hasWall, bool beforeBattle) =>
             !string.IsNullOrEmpty(run) && day > 0 && hasWall && beforeBattle &&
-            previous?.Matches(run, day) != true;
+            (previous?.Matches(run, day) != true || previous.State == Decision.Offered);
 
         // AddToCoins changes a single int without notifying observers. Publish UI/stat
         // events only after both the wallet and this receipt have been updated.

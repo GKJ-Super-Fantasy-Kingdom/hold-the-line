@@ -6,14 +6,15 @@ using UnityEngine;
 
 namespace HoldTheLine
 {
-    [BepInPlugin("gkj.holdtheline", "Hold the Line", "0.1.1")]
+    [BepInPlugin("gkj.holdtheline", "Hold the Line", "0.1.2")]
     public sealed class Plugin : BaseUnityPlugin
     {
         internal static Wager Current;
         private Harmony patches;
         private OfferCard card;
         private float readySince = -1;
-        private bool announced;
+        private Wager announced;
+        private float nextOfferAt;
 
         private void Awake()
         {
@@ -46,7 +47,8 @@ namespace HoldTheLine
             Current = null;
             card = null;
             readySince = -1;
-            announced = false;
+            announced = null;
+            nextOfferAt = 0f;
         }
 
         private static bool HasWall() => WallManager.Instance != null && WallManager.Instance.HasWall() &&
@@ -70,16 +72,21 @@ namespace HoldTheLine
             var clock = DaytimeManager.Instance;
             var run = GameDataManager.Instance.GetRunID();
             int day = clock.CurrentDay();
-            if (!announced && Current != null && Current.Run == run && Current.Day == day - 1 && clock.IsMorning())
+            bool worldReady = UIManager.Instance.IsWorldInteractable() && !DialogueManager.Instance.IsInDialogue();
+            if (Current != null && announced != Current && Current.Run == run && worldReady)
             {
-                announced = true;
-                if (Current.State == Decision.Paid || Current.State == Decision.Lost)
-                    AlertManager.Instance.DisplayMessage("Hold the Line", Current.State == Decision.Paid
-                        ? $"The wall held. You won {Wager.Payout} coins." : "The wall wager was lost.");
+                bool previousNight = Current.Day == day - 1;
+                bool wallHit = Current.Day == day && Current.State == Decision.Lost;
+                if ((previousNight || wallHit) && ShowResult(Current, wallHit))
+                {
+                    announced = Current;
+                    // Give the native alert time to finish before the next wager opens.
+                    nextOfferAt = Time.unscaledTime + 5f;
+                }
             }
 
             if (!Wager.CanOffer(Current, run, day, HasWall(), BeforeBattle(clock)) ||
-                !UIManager.Instance.IsWorldInteractable() || DialogueManager.Instance.IsInDialogue())
+                !worldReady || Time.unscaledTime < nextOfferAt)
             {
                 readySince = -1;
                 return;
@@ -88,7 +95,7 @@ namespace HoldTheLine
             if (readySince < 0) readySince = Time.unscaledTime;
             if (Time.unscaledTime - readySince < .65f) return;
             var wager = Current = new Wager { Run = run, Day = day };
-            card = new OfferCard(day, ResourceManager.Instance.GetCoins() >= Wager.Stake,
+            card = new OfferCard(day,
                 () => Accept(wager), () => Close(wager));
         }
 
@@ -134,12 +141,27 @@ namespace HoldTheLine
                 Notify(() => resources.ResourceAmountChanged(ResourceType.Coins));
                 Logger.LogInfo($"Night {Current.Day}: paid {Wager.Payout} coins.");
             }
+            if ((state == GameState.Win || state == GameState.Lose) && announced != Current)
+                Notify(() => { if (ShowResult(Current)) announced = Current; });
+        }
+
+        private static bool ShowResult(Wager wager, bool wallHit = false)
+        {
+            if (AlertManager.Instance == null) return false;
+            string message;
+            if (wager.State == Decision.Paid)
+                message = $"The wall held! {Wager.Payout} coins paid (+{Wager.Payout - Wager.Stake} net).";
+            else if (wager.State == Decision.Lost)
+                message = wallHit ? $"Wall damaged! Your {Wager.Stake} coin stake is lost." : $"Wager lost. Your {Wager.Stake} coin stake is spent.";
+            else return false;
+            AlertManager.Instance.DisplayMessage($"Hold the Line / Night {wager.Day}", message);
+            return true;
         }
 
         private void Notify(Action publish)
         {
             try { publish(); }
-            catch (Exception error) { Logger.LogWarning("Wager recorded. Coin notification failed: " + error.Message); }
+            catch (Exception error) { Logger.LogWarning("Wager recorded. Notification failed: " + error.Message); }
         }
     }
 }

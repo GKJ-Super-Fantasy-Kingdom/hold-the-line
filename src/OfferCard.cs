@@ -4,7 +4,6 @@ using SuperFantasyKingdom.UI;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.Localization.Components;
 using UnityEngine.UI;
@@ -17,11 +16,7 @@ namespace HoldTheLine
         private readonly Button accept, pass;
         private readonly int opened, night;
         private bool release;
-        private readonly GameObject prompt;
-        private readonly Image submitGlyph, backGlyph;
-        private readonly TextMeshProUGUI body, selectLabel, backLabel;
-        private string scheme;
-        private Gamepad device;
+        private readonly TextMeshProUGUI body;
         internal bool Exists => view != null;
 
         private static InputSystemUIInputModule Input =>
@@ -52,15 +47,6 @@ namespace HoldTheLine
             view.SetCancel("Pass", () => Invoke(decline));
             SetAffordable(ResourceManager.Instance.GetCoins() >= Wager.Stake);
 
-            prompt = Row("Controller hint", 4f);
-            submitGlyph = Icon(prompt, "Submit", 26f);
-            selectLabel = Label(prompt, "Select");
-            var gap = new GameObject("Gap", typeof(RectTransform), typeof(LayoutElement));
-            gap.transform.SetParent(prompt.transform, false);
-            gap.GetComponent<LayoutElement>().preferredWidth = 14f;
-            backGlyph = Icon(prompt, "Cancel", 26f);
-            backLabel = Label(prompt, "Back");
-            Refresh();
             GamepadManager.Instance.SetGameObjectToSelect(pass.gameObject, true);
         }
 
@@ -97,7 +83,7 @@ namespace HoldTheLine
             return row;
         }
 
-        private static Image Icon(GameObject row, string name, float pixels, Sprite sprite = null)
+        private static void Icon(GameObject row, string name, float pixels, Sprite sprite)
         {
             var icon = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(LayoutElement));
             icon.transform.SetParent(row.transform, false);
@@ -108,10 +94,9 @@ namespace HoldTheLine
             icon.SetActive(sprite != null);
             var size = icon.GetComponent<LayoutElement>();
             size.minWidth = size.preferredWidth = size.minHeight = size.preferredHeight = pixels;
-            return image;
         }
 
-        private TextMeshProUGUI Label(GameObject row, string value)
+        private void Label(GameObject row, string value)
         {
             var label = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
             label.transform.SetParent(row.transform, false);
@@ -122,7 +107,6 @@ namespace HoldTheLine
             text.color = body.color;
             text.raycastTarget = false;
             text.text = value;
-            return text;
         }
 
         private Button ButtonAt(string path)
@@ -160,41 +144,13 @@ namespace HoldTheLine
             var input = Input;
             if (release && input?.submit?.action.IsPressed() != true) release = false;
             var pad = GamepadManager.Instance;
-            var current = pad.GetPlayerInput()?.currentControlScheme ?? "";
-            bool show = pad.IsGamepadInUse();
             bool affordable = ResourceManager.Instance.GetCoins() >= Wager.Stake;
             if (accept.interactable != affordable) SetAffordable(affordable);
             var events = EventSystem.current;
-            if (show && !PauseMenuManger.Instance.InMenu() && events != null &&
+            if (pad.IsGamepadInUse() && !PauseMenuManger.Instance.InMenu() && events != null &&
                 (events.currentSelectedGameObject == null ||
                  (!affordable && events.currentSelectedGameObject == accept.gameObject)))
                 pad.SetGameObjectToSelect(pass.gameObject, true);
-            if (current == scheme && device == Gamepad.current && prompt.activeSelf == show) return;
-            scheme = current;
-            device = Gamepad.current;
-            prompt.SetActive(show);
-            if (!show) return;
-            Bind(submitGlyph, selectLabel, "Select", input?.submit?.action);
-            Bind(backGlyph, backLabel, "Back", input?.cancel?.action);
-        }
-
-        private void Bind(Image glyph, TextMeshProUGUI label, string verb, InputAction action)
-        {
-            int index = string.IsNullOrEmpty(scheme) ? -1 : action?.GetBindingIndex(scheme) ?? -1;
-            var pad = GamepadManager.Instance;
-            glyph.sprite = index < 0 ? null : pad.GetButtonPrompt(action.bindings[index].effectivePath);
-            // The game's generic */{Submit} and */{Cancel} bindings resolve on the device.
-            if (glyph.sprite == null && action != null)
-            {
-                foreach (var control in action.controls)
-                {
-                    if (!(control.device is Gamepad)) continue;
-                    glyph.sprite = pad.GetButtonPrompt("<Gamepad>/" + control.name);
-                    if (glyph.sprite != null) break;
-                }
-            }
-            glyph.gameObject.SetActive(glyph.sprite != null);
-            label.text = glyph.sprite == null && index >= 0 ? action.GetBindingDisplayString(index) + " " + verb : verb;
         }
     }
 }

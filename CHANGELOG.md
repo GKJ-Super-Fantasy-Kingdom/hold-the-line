@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4
+
+Place the wager buttons directly below the coin summary by removing the shortcut legend.
+
 ## 0.1.3
 
 Center the wager title on the native ribbon at both UI scales.

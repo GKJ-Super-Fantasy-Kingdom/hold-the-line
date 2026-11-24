@@ -1,7 +1,8 @@
 param(
     [string]$GameDir = 'D:\SteamLibrary\steamapps\common\Super Fantasy Kingdom',
     [string]$ProfileDir = (Join-Path $PSScriptRoot '../.analysis/profile'),
-    [string]$CopiedSave = (Join-Path $PSScriptRoot '../.analysis/saves/1_human_game.data')
+    [string]$CopiedSave = (Join-Path $PSScriptRoot '../.analysis/saves/1_human_game.data'),
+    [string]$NightsOfTerrorDll
 )
 # Run in a fresh PowerShell 7 process. All game objects here are managed-only fixtures.
 $ErrorActionPreference = 'Stop'
@@ -145,4 +146,41 @@ foreach ($route in 'TavernRead','WorldRead','WorldRead') {
         [void]$write.Invoke($null,$saveArgs)
         $night = $saveArgs[1]
     }
+}
+
+# Exercise the partner's actual reservation code without starting either Unity player.
+if ($NightsOfTerrorDll) {
+    $terror = [Reflection.Assembly]::LoadFrom((Resolve-Path $NightsOfTerrorDll).Path)
+    $group = [Activator]::CreateInstance($terror.GetType('NightsOfTerror.Reinforcement'),$true)
+    $clearance = $group.GetType().GetMethod('ForClearance',$instance)
+    $arrived = $group.GetType().GetMethod('Arrived',$instance)
+    $wager.State = 'Staked'
+    $wallet.SetCoins(0)
+    for ($i = 0; $i -lt 3; $i++) {
+        Assert ($clearance.Invoke($group,@(0)) -gt 0 -and $wallet.GetCoins() -eq 0 -and $wager.State -eq 'Staked') "empty field before reinforcement $($i+1) still holds the wager"
+        [void]$arrived.Invoke($group,@([single]$i,$true))
+    }
+    Assert ($clearance.Invoke($group,@(1)) -eq 1) 'last living reinforcement still blocks clearance'
+    Assert ($clearance.Invoke($group,@(0)) -eq 0 -and $finish.Invoke($wager,@($true,$credit)) -and
+        !$finish.Invoke($wager,@($true,$credit)) -and $wallet.GetCoins() -eq $wager.Payout) 'cleared group permits a single settlement'
+    $partner = [Mono.Cecil.AssemblyDefinition]::ReadAssembly($terror.Location)
+    try {
+        $guards = $partner.MainModule.GetType('NightsOfTerror.NightGates').NestedTypes
+        foreach ($guardSpec in @(
+            @{ Name='PhaseAdvance'; Gate='CountBeforeNight'; Signal='IsCombatOver' },
+            @{ Name='TavernPrompt'; Gate='CountBeforeTavern'; Signal='ForClearance' }
+        )) {
+            $countMethod = [SuperFantasyKingdom.CombatManager].GetMethod('CurrentMonstersAmount')
+            $site = [Collections.Generic.List[HarmonyLib.CodeInstruction]]::new()
+            $site.Add([HarmonyLib.CodeInstruction]::new([Reflection.Emit.OpCodes]::Callvirt,$countMethod))
+            $patch = $terror.GetType('NightsOfTerror.NightGates+'+$guardSpec.Name).GetMethod('Transpiler',$static)
+            $output = @($patch.Invoke($null,(,$site)) | ForEach-Object { $_ })
+            $gate = $partner.MainModule.GetType('NightsOfTerror.NightGates').Methods | Where-Object Name -eq $guardSpec.Gate
+            Assert ($output.Count -eq 2 -and $output[0].operand -eq $countMethod -and
+                $output[1].operand.Name -eq $guardSpec.Gate -and $gate.Body.Instructions.Operand.Name -contains $guardSpec.Signal) "$($guardSpec.Name) gates native clearance on $($guardSpec.Signal)"
+        }
+        $survival = $guards | Where-Object Name -eq 'Survival'
+        $calls = ($survival.Methods | Where-Object Name -eq 'Prefix').Body.Instructions.Operand.Name
+        Assert ($calls -contains 'IsCombatOver' -and $calls -contains 'BeginSettlement') 'partner guards native survival on combat completion before the wager event'
+    } finally { $partner.Dispose() }
 }

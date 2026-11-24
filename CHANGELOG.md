@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.3
+
+- Choose an adjustable Coin Wager, a fixed 20-coin Relic Wager, or Pass before battle. Both cards show the cost before acceptance.
+- Set your coin stake with the arrows. For example, staking 6 coins returns 9 on a flawless night, for a net profit of 3.
+- Win a Relic Wager to choose one of three eligible relics in the native chest picker. Claim Later keeps those same choices across Continue.
+- The two portrait wager cards feature larger illustrations, a bronze frame and wood grain for coins, and silver trim and woven diamonds for relics.
+- Accepted wagers from 0.1.5 retain their original terms. A damaging hit still forfeits the wager even if the wall is repaired before dawn.
+
 ## 0.1.5
 
 Updated the package icon to show the Castle Wall and the gold wager coin.

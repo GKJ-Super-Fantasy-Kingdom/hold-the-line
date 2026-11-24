@@ -24,7 +24,9 @@ namespace HoldTheLine
             var wager = record?.gkjHoldTheLine;
             return wager != null && !string.IsNullOrEmpty(run) && record.runID == run &&
                 record.hash == hash && wager.Run == run && wager.Day > 0 &&
-                Enum.IsDefined(typeof(Decision), wager.State) ? wager : null;
+                Enum.IsDefined(typeof(Decision), wager.State) && Enum.IsDefined(typeof(WagerKind), wager.Kind) &&
+                wager.Unclaimed != null && wager.Unclaimed.TrueForAll(p => p != null && p.Night > 0 && RelicPrize.Valid(p.Choices)) &&
+                (wager.Kind != WagerKind.Relic || RelicPrize.Valid(wager.Choices)) ? wager : null;
         }
 
         internal static string Attach(string json, Wager wager)

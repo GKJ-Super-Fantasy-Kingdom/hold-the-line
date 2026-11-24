@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace HoldTheLine
 {
-    [BepInPlugin("gkj.holdtheline", "Hold the Line", "0.1.5")]
+    [BepInPlugin("gkj.holdtheline", "Hold the Line", "0.2.3")]
     public sealed class Plugin : BaseUnityPlugin
     {
         internal static Wager Current;
@@ -14,6 +14,11 @@ namespace HoldTheLine
         private OfferCard card;
         private float readySince = -1;
         private Wager announced;
+        private int claimPromptDay = -1;
+        private RelicPrize openPrize;
+        private Action restorePicker;
+        private bool finishingRun, resumeVictory, claimedAtVictory;
+        private static Plugin instance;
         private float nextOfferAt;
 
         private void Awake()
@@ -27,6 +32,7 @@ namespace HoldTheLine
                 Logger.LogError("Hold the Line could not install its game hooks. " + error);
                 return;
             }
+            instance = this;
             GameManager.OnGameInit += Reset;
             GameManager.BeforeStateChange += Transition;
             OverlayManager.OnOverlayClose += Closed;
@@ -35,6 +41,7 @@ namespace HoldTheLine
 
         private void OnDestroy()
         {
+            instance = null;
             GameManager.OnGameInit -= Reset;
             GameManager.BeforeStateChange -= Transition;
             OverlayManager.OnOverlayClose -= Closed;
@@ -48,6 +55,11 @@ namespace HoldTheLine
             card = null;
             readySince = -1;
             announced = null;
+            claimPromptDay = -1;
+            restorePicker?.Invoke();
+            restorePicker = null;
+            openPrize = null;
+            finishingRun = resumeVictory = claimedAtVictory = false;
             nextOfferAt = 0f;
         }
 
@@ -62,6 +74,19 @@ namespace HoldTheLine
 
         private void Update()
         {
+            if (resumeVictory)
+            {
+                resumeVictory = false;
+                if (claimedAtVictory && Current != null && Current.Unclaimed.Count > 0)
+                {
+                    claimedAtVictory = false;
+                    OpenClaim(Current, Current.Unclaimed[0]);
+                    return;
+                }
+                OverlayManager.Instance.OpenGameOver(false);
+                finishingRun = false;
+                return;
+            }
             if (card != null)
             {
                 if (card.Exists) { card.Refresh(); return; }
@@ -73,6 +98,19 @@ namespace HoldTheLine
             var run = GameDataManager.Instance.GetRunID();
             int day = clock.CurrentDay();
             bool worldReady = UIManager.Instance.IsWorldInteractable() && !DialogueManager.Instance.IsInDialogue();
+            if (worldReady && Current?.Run == run && Current.Unclaimed.Count > 0 &&
+                claimPromptDay != day && BeforeBattle(clock) && Time.unscaledTime >= nextOfferAt)
+            {
+                // Opening is free. Closing or Back defers to the next morning or Continue.
+                claimPromptDay = day;
+                var prize = Current.Unclaimed.Find(p => Array.Exists(p.Choices, id =>
+                    !RelicManager.Instance.HasRelic(id) && RelicManager.Instance.CanAddRelic(id)));
+                if (prize != null)
+                {
+                    OpenClaim(Current, prize);
+                    return;
+                }
+            }
             if (Current != null && announced != Current && Current.Run == run && worldReady)
             {
                 bool previousNight = Current.Day == day - 1;
@@ -94,24 +132,61 @@ namespace HoldTheLine
             // Let daily events and other native overlays claim focus first.
             if (readySince < 0) readySince = Time.unscaledTime;
             if (Time.unscaledTime - readySince < .65f) return;
-            var wager = Current = new Wager { Run = run, Day = day };
-            card = new OfferCard(day,
-                () => Accept(wager), () => Close(wager));
+            var wager = Current = Wager.Open(Current, run, day);
+            var choices = RelicRewards.Draw(wager);
+            card = new OfferCard(day, choices.Length == 3, profit => Accept(wager, profit),
+                () => Accept(wager, 0), () => Close(wager));
         }
 
-        private void Accept(Wager wager)
+        private void OpenClaim(Wager wager, RelicPrize prize)
+        {
+            openPrize = prize;
+            restorePicker = RelicRewards.Show(prize, finishingRun, id =>
+            {
+                if (Current != wager || openPrize != prize) return;
+                var relics = RelicManager.Instance;
+                if (relics.HasRelic(id) || !relics.CanAddRelic(id)) return;
+                if (wager.Claim(prize, id, name =>
+                {
+                    try { return relics.AddRelic(name) != null; }
+                    catch (Exception error)
+                    {
+                        Logger.LogWarning("Native relic grant interrupted: " + error.Message);
+                        return relics.HasRelic(name);
+                    }
+                }))
+                {
+                    claimedAtVictory = finishingRun;
+                    OverlayManager.Instance.CloseOverlay();
+                    Notify(() => AlertManager.Instance.DisplayMessage("Hold the Line", "Relic claimed: " +
+                        AddressablesManager.Instance.GetRelic(id).GetTitle()));
+                }
+            });
+        }
+
+        private void Accept(Wager wager, int profit)
         {
             if (card == null || Current != wager) return;
             var game = GameManager.Instance;
             var clock = DaytimeManager.Instance;
             var purse = ResourceManager.Instance;
-            if (game != null && !game.IsUnloading() && game.IsGameRunning() && !game.IsGameOver() &&
-                wager.Matches(GameDataManager.Instance.GetRunID(), clock.CurrentDay()) && HasWall() &&
-                BeforeBattle(clock) && wager.Accept(purse.GetCoins(), purse.AddToCoins))
+            if (game == null || game.IsUnloading() || !game.IsGameRunning() || game.IsGameOver() ||
+                !wager.Matches(GameDataManager.Instance.GetRunID(), clock.CurrentDay()) || !HasWall() || !BeforeBattle(clock))
             {
-                Notify(() => purse.ResourceAmountChanged(ResourceType.Coins));
-                Logger.LogInfo($"Night {wager.Day}: 1 coin staked.");
+                Close(wager);
+                return;
             }
+            bool charged;
+            if (profit == 0)
+            {
+                var choices = RelicRewards.Draw(wager);
+                card.RefreshRelicOffer(choices.Length == 3);
+                charged = wager.AcceptRelic(choices, purse.GetCoins(), purse.AddToCoins);
+            }
+            else charged = wager.AcceptCoin(profit, purse.GetCoins(), purse.AddToCoins);
+            if (!charged) return;
+            Notify(() => purse.ResourceAmountChanged(ResourceType.Coins));
+            Logger.LogInfo($"Night {wager.Day}: {wager.Stake} coins staked on {wager.Kind}.");
             Close(wager);
         }
 
@@ -122,9 +197,32 @@ namespace HoldTheLine
 
         private void Closed()
         {
+            if (openPrize != null)
+            {
+                restorePicker?.Invoke();
+                restorePicker = null;
+                openPrize = null;
+                if (finishingRun) resumeVictory = true;
+                nextOfferAt = Time.unscaledTime + 1f;
+            }
             if (card == null) return;
             Current?.Pass();
             card = null;
+        }
+
+        // There is no following morning on the final night. Present the earned
+        // cards before the victory screen can discard the run.
+        [HarmonyPatch(typeof(OverlayManager), nameof(OverlayManager.OpenGameOver))]
+        private static class VictoryReward
+        {
+            private static bool Prefix(bool __0)
+            {
+                if (__0 || instance == null || instance.finishingRun || Current == null || Current.Unclaimed.Count == 0 || Current.Run != GameDataManager.Instance.GetRunID() ||
+                    GameManager.Instance.GetGameState() != GameState.Win) return true;
+                instance.finishingRun = true;
+                instance.OpenClaim(Current, Current.Unclaimed[0]);
+                return false;
+            }
         }
 
         private void Transition(GameState state)
@@ -135,11 +233,11 @@ namespace HoldTheLine
                 DaytimeManager.Instance.CurrentDay())) return;
             var resources = ResourceManager.Instance;
             bool completed = survived && (CombatManager.Instance.IsCombatOver() || DaytimeManager.Instance.IsNight());
-            if (Current.Finish(completed, resources.AddToCoins))
+            if (Current.Finish(completed, resources.AddToCoins) && Current.State == Decision.Paid)
             {
-                Notify(() => StatisticsManager.Instance.AddCoins(Wager.Payout));
+                Notify(() => StatisticsManager.Instance.AddCoins(Current.Payout));
                 Notify(() => resources.ResourceAmountChanged(ResourceType.Coins));
-                Logger.LogInfo($"Night {Current.Day}: paid {Wager.Payout} coins.");
+                Logger.LogInfo($"Night {Current.Day}: paid {Current.Payout} coins.");
             }
             if ((state == GameState.Win || state == GameState.Lose) && announced != Current)
                 Notify(() => { if (ShowResult(Current)) announced = Current; });
@@ -150,9 +248,9 @@ namespace HoldTheLine
             if (AlertManager.Instance == null) return false;
             string message;
             if (wager.State == Decision.Paid)
-                message = $"The wall held! {Wager.Payout} coins paid (+{Wager.Payout - Wager.Stake} net).";
+                message = $"The wall held! {wager.Payout} coins paid (+{wager.Payout - wager.Stake} net).";
             else if (wager.State == Decision.Lost)
-                message = wallHit ? $"Wall damaged! Your {Wager.Stake} coin stake is lost." : $"Wager lost. Your {Wager.Stake} coin stake is spent.";
+                message = wallHit ? $"Wall damaged! Your {wager.Stake} coin stake is lost." : $"Wager lost. Your {wager.Stake} coin stake is spent.";
             else return false;
             AlertManager.Instance.DisplayMessage($"Hold the Line / Night {wager.Day}", message);
             return true;

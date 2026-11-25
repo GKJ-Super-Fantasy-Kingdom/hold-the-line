@@ -36,9 +36,11 @@ Before battle, choose a coin wager, stake 20 coins for a relic, or pass. To win,
 
 ## Compatibility
 
-Tested on Super Fantasy Kingdom **0.8.068** at 1× and 1.5× UI scale with mouse, keyboard, and virtual controller input. The wager works alongside the [Daybook resource HUD](https://thunderstore.io/c/super-fantasy-kingdom/p/GKJ/Daybook/) and [Visitor Calendar](https://thunderstore.io/c/super-fantasy-kingdom/p/GKJ/VisitorCalendar/).
-
-When playing with Nights of Terror, the wager settles after the final reinforcement is defeated.
+- Works with Super Fantasy Kingdom **0.8.068** and the other [GKJ mods](https://thunderstore.io/c/super-fantasy-kingdom/p/GKJ/).
+- With [Nights of Terror](https://thunderstore.io/c/super-fantasy-kingdom/p/GKJ/NightsOfTerror/), the wager stays active through the midnight reinforcements and settles with the rest of the night.
+- With [Cursed Relics](https://thunderstore.io/c/super-fantasy-kingdom/p/GKJ/CursedRelics/), paid relic choices stay ordinary unless you enable `AllowPaidWager` in Cursed Relics. A change in the wall’s maximum health by itself leaves the wager intact.
+- The offer can share the screen with [Daybook](https://thunderstore.io/c/super-fantasy-kingdom/p/GKJ/Daybook/) and [Visitor Calendar](https://thunderstore.io/c/super-fantasy-kingdom/p/GKJ/VisitorCalendar/). A wager requires a standing Castle Wall.
+- These community mods can share the same profile. [Achievement Enabler](https://thunderstore.io/c/super-fantasy-kingdom/p/ownlyme/AchievementEnabler/), [Bakery Uses Wheat](https://thunderstore.io/c/super-fantasy-kingdom/p/ownlyme/BakeryUsesWheat/), [More Relics](https://thunderstore.io/c/super-fantasy-kingdom/p/ownlyme/MoreRelics/), [Right Click Skip](https://thunderstore.io/c/super-fantasy-kingdom/p/ownlyme/RightClickSkip/), and [Tavern Food Priorities](https://thunderstore.io/c/super-fantasy-kingdom/p/ownlyme/TavernFoodPriorities/).
 
 ## Installation
 

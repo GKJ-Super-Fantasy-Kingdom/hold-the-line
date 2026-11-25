@@ -1,8 +1,8 @@
 {
   "name": "HoldTheLine",
-  "version_number": "0.2.3",
+  "version_number": "0.2.4",
   "website_url": "https://github.com/GKJ-Super-Fantasy-Kingdom/hold-the-line",
-  "description": "Bet coins or stake 20 for a choice of relics. Keep your Castle Wall unharmed until the night ends. A repaired hit still loses the wager.",
+  "description": "Wager coins or stake 20 coins for a relic choice. Win by keeping your Castle Wall unharmed through the night.",
   "dependencies": [
     "BepInEx-BepInExPack-5.4.2305",
     "BepInEx-HideManagerGameObject_Config-5.4.2304"

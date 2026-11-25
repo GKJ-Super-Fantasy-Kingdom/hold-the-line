@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.4
+
+Clarify the mod’s description and compatibility for players.
+
 ## 0.2.3
 
 - Choose an adjustable Coin Wager, a fixed 20-coin Relic Wager, or Pass before battle. Both cards show the cost before acceptance.
@@ -30,4 +34,4 @@ Resolve the active controller's submit glyph on the wager offer.
 
 ## 0.1.0
 
-First local test build. Adds an optional Castle Wall wager, native offer and controller controls, damage tracking, and checkpointed settlement.
+Adds an optional Castle Wall wager, native offer and controller controls, damage tracking, and checkpointed settlement.

@@ -44,3 +44,7 @@ When playing with Nights of Terror, the wager settles after the final reinforcem
 
 1. Open a Super Fantasy Kingdom profile in Thunderstore Mod Manager and install **HoldTheLine** by **GKJ**. Allow the manager to install [BepInExPack](https://thunderstore.io/c/super-fantasy-kingdom/p/BepInEx/BepInExPack/) and [HideManagerGameObject_Config](https://thunderstore.io/c/super-fantasy-kingdom/p/BepInEx/HideManagerGameObject_Config/).
 2. Select **Start modded** and load your kingdom. Once you have a standing Castle Wall, watch for the offer before battle.
+
+## Support
+
+[Support GKJ Games on Ko-fi](https://ko-fi.com/gkj_games)

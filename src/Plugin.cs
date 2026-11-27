@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace HoldTheLine
 {
-    [BepInPlugin("gkj.holdtheline", "Hold the Line", "0.2.4")]
+    [BepInPlugin("gkj.holdtheline", "Hold the Line", "0.2.10")]
     public sealed class Plugin : BaseUnityPlugin
     {
         internal static Wager Current;

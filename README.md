@@ -12,31 +12,30 @@ Before battle, choose a coin wager, stake 20 coins for a relic, or pass. To win,
 
 ## How to Use
 
-1. With a standing Castle Wall, wait for the prebattle offer. Use the arrows on the **Coin Wager** card to adjust the stake. The black counter shows how many coins you will pay. For example, a profit of 3 costs 6 coins and returns 9 total on a win.
+1. With a standing Castle Wall, wait for the prebattle offer. Use the arrows or the displayed controller shortcuts on the **Coin Wager** card to adjust the stake. The counter shows how many coins you will pay. For example, a profit of 3 costs 6 coins and returns 9 total on a win.
 2. Choose **Coin Wager** or **Relic Wager** to pay the displayed stake. Choose **Pass** or press **Back** to keep your coins.
 3. Defend the wall until the night ends. After a relic win, choose a card or select **Claim Later** to see those same choices on another morning or after Continue.
 
 ## Screenshots
 
-**Coin Wager at 1×**
+![Human Coin Wager at 1× with a six-coin stake and nine-coin return.](docs/screenshots/current/human-coin-wager-1x.png)
 
-![The selected coin card shows a 6-coin stake, a total return of 9, and a net profit of 3.](https://raw.githubusercontent.com/GKJ-Super-Fantasy-Kingdom/hold-the-line/v0.2.3/docs/screenshots/0.2.3/1x.png)
+![Undead Relic Wager at 1.5× showing the 20-coin stake.](docs/screenshots/current/undead-relic-wager-1p5x.png)
 
-**Relic Wager at 1.5×**
+![Undead relic reward picker at 1.5× with Claim Later focused.](docs/screenshots/current/undead-reward-1p5x.png)
 
-![The selected relic card shows the 20-coin stake and the choice of one of three relics.](https://raw.githubusercontent.com/GKJ-Super-Fantasy-Kingdom/hold-the-line/v0.2.3/docs/screenshots/0.2.3/1.5x.png)
+![Undead relic reward restored after Continue, showing Glasses, Fire in a Bottle and Unholy Aura.](docs/screenshots/current/undead-restored-reward-1x.png)
 
-**Relic picker at 1×**
+### Wager Cards
 
-![Metal Mage has controller focus in the native chest picker.](https://raw.githubusercontent.com/GKJ-Super-Fantasy-Kingdom/hold-the-line/v0.2.3/docs/screenshots/0.2.3/picker-1x.png)
-
-**Relic picker at 1.5×**
-
-![All three saved choices are visible with Claim Later focused.](https://raw.githubusercontent.com/GKJ-Super-Fantasy-Kingdom/hold-the-line/v0.2.3/docs/screenshots/0.2.3/picker-1.5x.png)
+| Coin Wager | Relic Wager |
+| --- | --- |
+| Adjust your stake and see the total return before committing. | Stake 20 coins for a chance to choose one of three relics. |
+| ![Coin Wager card](docs/screenshots/cards/coin-wager.png) | ![Relic Wager card](docs/screenshots/cards/relic-wager.png) |
 
 ## Compatibility
 
-- Works with Super Fantasy Kingdom **0.8.068** and the other [GKJ mods](https://thunderstore.io/c/super-fantasy-kingdom/p/GKJ/).
+- Tested on Super Fantasy Kingdom **0.8.070** with other [GKJ mods](https://thunderstore.io/c/super-fantasy-kingdom/p/GKJ/).
 - With [Nights of Terror](https://thunderstore.io/c/super-fantasy-kingdom/p/GKJ/NightsOfTerror/), the wager stays active through the midnight reinforcements and settles with the rest of the night.
 - With [Cursed Relics](https://thunderstore.io/c/super-fantasy-kingdom/p/GKJ/CursedRelics/), paid relic choices stay ordinary unless you enable `AllowPaidWager` in Cursed Relics. A change in the wall’s maximum health by itself leaves the wager intact.
 - The offer can share the screen with [Daybook](https://thunderstore.io/c/super-fantasy-kingdom/p/GKJ/Daybook/) and [Visitor Calendar](https://thunderstore.io/c/super-fantasy-kingdom/p/GKJ/VisitorCalendar/). A wager requires a standing Castle Wall.
@@ -46,7 +45,5 @@ Before battle, choose a coin wager, stake 20 coins for a relic, or pass. To win,
 
 1. Open a Super Fantasy Kingdom profile in Thunderstore Mod Manager and install **HoldTheLine** by **GKJ**. Allow the manager to install [BepInExPack](https://thunderstore.io/c/super-fantasy-kingdom/p/BepInEx/BepInExPack/) and [HideManagerGameObject_Config](https://thunderstore.io/c/super-fantasy-kingdom/p/BepInEx/HideManagerGameObject_Config/).
 2. Select **Start modded** and load your kingdom. Once you have a standing Castle Wall, watch for the offer before battle.
-
-## Support
 
 [Support GKJ Games on Ko-fi](https://ko-fi.com/gkj_games)

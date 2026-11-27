@@ -45,6 +45,7 @@ namespace HoldTheLine
             var cards = overlays.GetMerchantScreen();
             overlays.SetCanCloseOverlay(true);
             cards.Init("Relic Wager");
+            var shield = ChooserPointerShield.Add(cards.transform, Color.clear);
             cards.SetText($"Night {prize.Night} won. Choose one relic.");
             var selectable = new List<Button>();
             bool open = true;
@@ -79,6 +80,7 @@ namespace HoldTheLine
             if (wasLocalized) localize.enabled = false;
             var later = cards.SetCancel(finalNight ? "Finish Run" : "Claim Later");
             var cancel = later.GetComponent<Button>();
+            var restoreFooter = ChooserFooter.Fit(cancel, cancelText);
             var previousNavigation = cancel.navigation;
             if (selectable.Count > 0)
             {
@@ -91,11 +93,16 @@ namespace HoldTheLine
                         selectOnRight = selectable[(i + 1) % selectable.Count], selectOnUp = cancel, selectOnDown = cancel };
             }
             cards.Display();
-            GamepadManager.Instance.SetGameObjectToSelect(later.gameObject, true);
-            UnityEngine.EventSystems.EventSystem.current?.SetSelectedGameObject(later.gameObject);
+            shield.AddComponent<ChooserNavigation>().Initialize(cards.transform, cancel);
             return () =>
             {
                 open = false;
+                if (shield != null)
+                {
+                    shield.SetActive(false);
+                    UnityEngine.Object.Destroy(shield);
+                }
+                restoreFooter?.Invoke();
                 if (cancel != null) cancel.navigation = previousNavigation;
                 if (cancelText != null) cancelText.text = previousText;
                 if (wasLocalized && localize != null) localize.enabled = true;

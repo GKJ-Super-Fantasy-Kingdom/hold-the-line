@@ -65,9 +65,22 @@ namespace HoldTheLine
 
         private static bool IsGame(string path) => path?.EndsWith("_game", StringComparison.Ordinal) == true;
 
-        [HarmonyPatch(typeof(SaveManager), nameof(SaveManager.Save), typeof(string), typeof(string))]
+        [HarmonyPatch]
         internal static class Write
         {
+            private static MethodBase TargetMethod()
+            {
+                const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
+                var type = typeof(SaveManager);
+                var name = nameof(SaveManager.Save);
+                // 0.8.070 added doBackUp. Both values write the primary checkpoint.
+                var save = type.GetMethod(name, flags, null, new[] { typeof(string), typeof(string), typeof(bool) }, null)
+                    ?? type.GetMethod(name, flags, null, new[] { typeof(string), typeof(string) }, null);
+                if (save == null || save.ReturnType != typeof(void))
+                    throw new MissingMethodException(type.FullName, name);
+                return save;
+            }
+
             private static void Prefix(string __0, ref string __1)
             {
                 if (IsGame(__0)) __1 = Checkpoint.Attach(__1, Plugin.Current);

@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.2.10
+
+- Restore wager and relic reward persistence on Super Fantasy Kingdom 0.8.070 while retaining the 0.8.069 save hook.
+- Update the package icon and screenshots for the current wager cards and relic picker.
+
+## 0.2.9
+
+- Wager cards, stake arrows and chooser footers show a white edge on hover, focus and press, and clear it when the interaction ends.
+
+## 0.2.8
+
+- Blank clicks leave the wager and earned relic choosers open.
+- Pass and Claim Later use the game's outlined cancel button style.
+
+## 0.2.7
+
+- Adjust the Coin Wager with the native overlay shortcuts. The arrows show the current controller or keyboard binding.
+
+## 0.2.6
+
+- Wager selection now places its cards over the darkened kingdom, with the rules above the card row and Pass below it.
+
+## 0.2.5
+
+- Wager cards now highlight on mouse hover and controller focus. Unavailable cards dim their artwork and show the missing coins or eligible relics.
+
 ## 0.2.4
 
 Clarify the mod’s description and compatibility for players.

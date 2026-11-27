@@ -75,6 +75,21 @@ try {
         if ($null -eq $ref.Resolve()) { throw "Unresolved reference $ref" }
     }
     Assert ($refs.Count -gt 0) "$($refs.Count) packaged runtime references resolve"
+    $target = $mod.GetType('HoldTheLine.SaveHooks+Write').GetMethod('TargetMethod',$static).Invoke($null,@())
+    $signature = $target.GetParameters().ParameterType.FullName -join ','
+    Assert ($target.ReturnType -eq [void] -and $signature -in 'System.String,System.String','System.String,System.String,System.Boolean') 'save patch resolves a supported native overload'
+    foreach ($type in 'SuperFantasyKingdom.GameDataManager','SuperFantasyKingdom.Tavern.TavernSaveManager') {
+        $save = $game.MainModule.GetType($type).Methods | Where-Object Name -eq Save
+        $calls = @($save.Body.Instructions | Where-Object {
+            $_.Operand -is [Mono.Cecil.MethodReference] -and $_.Operand.Name -eq 'Save' -and
+            $_.Operand.DeclaringType.FullName -eq 'SuperFantasyKingdom.SaveManager'
+        })
+        Assert ($calls.Count -eq 1 -and ($calls[0].Operand.Parameters.ParameterType.FullName -join ',') -eq $signature) "$type reaches the selected save overload once"
+        if ($signature.EndsWith(',System.Boolean')) {
+            $expected = if ($type.EndsWith('.TavernSaveManager')) {'ldc.i4.1'} else {'ldc.i4.0'}
+            Assert ($calls[0].Previous.OpCode.Name -eq $expected) "$type preserves its native backup policy"
+        }
+    }
     $hit = @(Body WallManager WallGetsHit)
     $writes = @($hit | Where-Object { $_.OpCode.Name -eq 'stfld' -and $_.Operand.Name -eq 'm_Hitpoints' })
     Assert ($writes.Count -eq 1 -and $writes[0].Previous.Operand.Name -eq 'Max' -and

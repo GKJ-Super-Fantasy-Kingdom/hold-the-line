@@ -6,7 +6,6 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
-using UnityEngine.Localization.Components;
 using UnityEngine.UI;
 
 namespace HoldTheLine
@@ -17,12 +16,14 @@ namespace HoldTheLine
         private static readonly Lazy<Sprite> Reliquary = new Lazy<Sprite>(() => LoadArt("Relic"));
         private static readonly Lazy<Sprite> BronzeFrame = new Lazy<Sprite>(() => LoadArt("CoinFrame"));
         private static readonly Lazy<Sprite> SilverFrame = new Lazy<Sprite>(() => LoadArt("RelicFrame"));
-        private const float CardWidth = 280f, CardHeight = 420f, Gap = 16f;
+        private const float CardWidth = 280f, CardHeight = 420f, Gap = 24f;
         private readonly UIOverlayMessage view;
         private readonly Vector2 center;
         private Vector2 viewport;
         private readonly Button accept, pass, relic, lower, higher;
-        private readonly TextMeshProUGUI priceText, relicText;
+        private readonly ChoiceEdge lowerEdge, higherEdge;
+        private readonly StakeShortcutHint lowerHint, higherHint;
+        private readonly TextMeshProUGUI priceText, coinRequirement, relicRequirement;
         private readonly Text stakeCount;
         private bool hasThree;
         private int profit = 1, lastCoins = -1;
@@ -38,7 +39,13 @@ namespace HoldTheLine
         {
             night = day;
             hasThree = relicAvailable;
-            view = OverlayManager.Instance.OverlayMessage(true);
+            var overlays = OverlayManager.Instance;
+            var overlay = overlays.OverlayEmpty();
+            UIManager.Instance.HideUI(alsoResources: false, alsoClock: true);
+            var messagePrefab = Resources.Load<GameObject>("UI/OverlayMessage");
+            ChooserPointerShield.Add(overlay, new Color32(9, 12, 19, 190));
+            view = UnityEngine.Object.Instantiate(messagePrefab, overlay).GetComponent<UIOverlayMessage>();
+            view.GetComponent<Image>().enabled = false;
             center = ((RectTransform)view.transform).anchoredPosition;
             FitDialog();
             opened = Time.frameCount;
@@ -48,14 +55,23 @@ namespace HoldTheLine
             body.GetComponent<LayoutElement>().preferredWidth = width;
             body.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
             body.enableWordWrapping = true;
+            body.color = new Color32(248, 233, 204, 255);
             var layout = view.GetComponent<VerticalLayoutGroup>();
             layout.childAlignment = TextAnchor.UpperCenter;
-            layout.spacing = 7f;
+            layout.padding = new RectOffset(0, 0, 8, 8);
+            layout.spacing = 14f;
             Heading(width);
             view.SetMessage($"Keep the Castle Wall unharmed through Night {night}.\nAny damage costs your stake, even if repaired.");
             view.RemoveAccept();
             pass = view.transform.Find("Buttons/Cancel").GetComponent<Button>();
             view.SetCancel("Pass", () => Invoke(decline));
+            pass.GetComponent<ContentSizeFitter>().enabled = false;
+            pass.GetComponent<VerticalLayoutGroup>().enabled = false;
+            var footerLabel = pass.transform.Find("Text").GetComponent<TextMeshProUGUI>();
+            footerLabel.rectTransform.anchorMin = Vector2.zero;
+            footerLabel.rectTransform.anchorMax = Vector2.one;
+            footerLabel.rectTransform.offsetMin = footerLabel.rectTransform.offsetMax = Vector2.zero;
+            ChooserFooter.Fit(pass, footerLabel);
             var actions = pass.transform.parent.gameObject.AddComponent<HorizontalLayoutGroup>();
             actions.childAlignment = TextAnchor.MiddleCenter;
             actions.childControlWidth = actions.childControlHeight = false;
@@ -72,6 +88,10 @@ namespace HoldTheLine
             Place(amount, 0f, 314f, 94f, 32f);
             lower = Arrow(amount, "Less", -1);
             higher = Arrow(amount, "More", 1);
+            lowerEdge = ChoiceEdge.Add(lower, ChoiceEdge.Arrow.Value, new Vector2(26f / 12f, 2f));
+            higherEdge = ChoiceEdge.Add(higher, ChoiceEdge.Arrow.Value, new Vector2(26f / 12f, 2f));
+            lowerHint = ArrowHint(lower, -1);
+            higherHint = ArrowHint(higher, 1);
             var box = amount.GetComponent<Image>() ?? amount.gameObject.AddComponent<Image>();
             box.color = new Color(.09f, .08f, .08f);
             box.raycastTarget = true;
@@ -83,11 +103,12 @@ namespace HoldTheLine
             stakeCount.resizeTextMinSize = 11;
             stakeCount.resizeTextMaxSize = 24;
             priceText = Label(accept.transform, "", 369f, 60f, 26f);
-            Label(relic.transform, "Stake 20 coins", 308f, 46f, 29f);
-            relicText = Label(relic.transform, "", 369f, 60f, 26f);
+            coinRequirement = Requirement(accept.transform, 391f, 23f);
+            Label(relic.transform, $"Stake {Wager.RelicCost} coins", 308f, 46f, 29f);
+            Label(relic.transform, "Choose 1 of 3 relics", 352f, 30f, 26f);
+            relicRequirement = Requirement(relic.transform, 387f, 39f);
             UpdateTerms(ResourceManager.Instance.GetCoins());
-            GamepadManager.Instance.SetGameObjectToSelect(pass.gameObject, true);
-            EventSystem.current?.SetSelectedGameObject(pass.gameObject);
+            view.gameObject.AddComponent<ChooserNavigation>().Initialize(view.transform, pass);
         }
 
         private void FitDialog()
@@ -100,28 +121,18 @@ namespace HoldTheLine
             float scale = Mathf.Min(1f, available.x / (CardWidth * 2 + Gap + 80f), available.y / 756f);
             var rect = (RectTransform)view.transform;
             rect.localScale = Vector3.one * scale;
-            rect.anchoredPosition = center + Vector2.down * (40f * scale);
+            rect.anchoredPosition = center + Vector2.down * (32f * scale);
         }
 
         private void Heading(float width)
         {
-            var source = OverlayManager.Instance.transform.Find("Overlay/SizeSelection/HeaderContainer/Header");
-            if (source == null) return;
-            var banner = UnityEngine.Object.Instantiate(source, view.transform, false);
-            banner.name = "Wager heading";
-            banner.SetAsFirstSibling();
-            banner.gameObject.SetActive(true);
-            var size = banner.GetComponent<LayoutElement>() ?? banner.gameObject.AddComponent<LayoutElement>();
-            size.ignoreLayout = false;
+            var title = Label(view.transform, "Hold the Line", 0f, 52f, 42f);
+            title.name = "Wager heading";
+            title.fontStyle = FontStyles.Bold;
+            title.transform.SetAsFirstSibling();
+            var size = title.gameObject.AddComponent<LayoutElement>();
             size.preferredWidth = width;
-            size.minHeight = size.preferredHeight = 46f;
-            var title = banner.Find("Text").GetComponent<TextMeshProUGUI>();
-            var localized = title.GetComponent<LocalizeStringEvent>();
-            if (localized != null) localized.enabled = false;
-            title.text = "Hold the Line";
-            // The ribbon's text pivot sits above the center of its painted face.
-            title.rectTransform.anchoredPosition += Vector2.down * 4f;
-            foreach (var graphic in banner.GetComponentsInChildren<Graphic>()) graphic.raycastTarget = false;
+            size.minHeight = size.preferredHeight = 52f;
         }
 
         private GameObject Row(string name, float spacing)
@@ -147,28 +158,13 @@ namespace HoldTheLine
 
         private Button Choice(GameObject row, string title, Sprite artwork, Sprite frameArt, Action action)
         {
-            var card = new GameObject(title, typeof(RectTransform), typeof(Image), typeof(LayoutElement), typeof(Button));
+            var card = new GameObject(title, typeof(RectTransform), typeof(Image), typeof(LayoutElement), typeof(WagerChoiceButton));
             card.transform.SetParent(row.transform, false);
             var size = card.GetComponent<LayoutElement>();
             size.preferredWidth = CardWidth;
             size.preferredHeight = CardHeight;
             var face = card.GetComponent<Image>();
             face.sprite = frameArt;
-            var button = card.GetComponent<Button>();
-            button.targetGraphic = face;
-            var colors = button.colors;
-            colors.normalColor = new Color(.94f, .94f, .94f);
-            colors.selectedColor = colors.highlightedColor = Color.white;
-            colors.disabledColor = new Color(.67f, .67f, .67f);
-            button.colors = colors;
-            // A bright border makes directional focus visible against either illustrated card.
-            var frame = card.AddComponent<Outline>();
-            frame.effectColor = Color.white;
-            frame.effectDistance = new Vector2(3f, -3f);
-            frame.enabled = false;
-            card.AddComponent<WagerCardFocus>().Frame = frame;
-            button.onClick.AddListener(() => Invoke(action));
-
             var art = new GameObject("Illustration", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
             art.transform.SetParent(card.transform, false);
             art.sprite = artwork;
@@ -177,10 +173,18 @@ namespace HoldTheLine
             Place(art.rectTransform, 0, 114f, 264f, 212f);
             var heading = Label(card.transform, title, 243f, 42f, 34f);
             heading.fontStyle = FontStyles.Bold;
+
+            var button = card.GetComponent<WagerChoiceButton>();
+            button.SetArtwork(face, art);
+            ChoiceEdge.Add(button, ChoiceEdge.Card.Value, new Vector2(2f, 2f));
+            button.onClick.AddListener(() =>
+            {
+                if (button.IsActive() && button.IsInteractable()) Invoke(action);
+            });
             return button;
         }
 
-        private static Sprite LoadArt(string name)
+        internal static Sprite LoadArt(string name)
         {
             using var stream = typeof(OfferCard).Assembly.GetManifestResourceStream("HoldTheLine.Art." + name);
             using var image = new MemoryStream();
@@ -213,6 +217,14 @@ namespace HoldTheLine
             return text;
         }
 
+        private TextMeshProUGUI Requirement(Transform parent, float y, float height)
+        {
+            var text = Label(parent, "", y, height, 22f);
+            text.name = "Requirement";
+            text.color = new Color32(255, 211, 145, 255);
+            return text;
+        }
+
         private Button Arrow(RectTransform amount, string name, int step)
         {
             var button = amount.Find(name).GetComponent<Button>();
@@ -221,6 +233,47 @@ namespace HoldTheLine
             button.onClick = new Button.ButtonClickedEvent();
             button.onClick.AddListener(() => Invoke(() => Adjust(step)));
             return button;
+        }
+
+        private StakeShortcutHint ArrowHint(Button arrow, int direction)
+        {
+            var hint = new GameObject("Shortcut", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
+            hint.transform.SetParent(arrow.transform, false);
+            // The native left arrow mirrors its sprite. Keep the attached hint upright.
+            var arrowTransform = arrow.transform;
+            float facing = Mathf.Sign(Vector3.Dot(arrowTransform.right, arrowTransform.parent.right) * arrowTransform.localScale.x);
+            Place(hint.rectTransform, 43f * direction * facing, 16f, 48f, 30f);
+            hint.rectTransform.localScale = new Vector3(facing, 1f, 1f);
+            // The shortcut label extends the arrow's mouse target.
+            hint.color = Color.clear;
+            var label = Label(hint.transform, "", 15f, 30f, 21f);
+            label.enableAutoSizing = true;
+            label.fontSizeMin = 12f;
+            label.fontSizeMax = 21f;
+            label.enableWordWrapping = false;
+            var glyph = new GameObject("Game glyph", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
+            glyph.transform.SetParent(hint.transform, false);
+            Place(glyph.rectTransform, 0f, 15f, 46f, 28f);
+            glyph.preserveAspect = true;
+            glyph.raycastTarget = false;
+            return new StakeShortcutHint(hint.gameObject, label, glyph);
+        }
+
+        private void UpdateShortcuts(GamepadManager pad)
+        {
+            var player = pad.GetPlayerInput();
+            var actions = player?.actions;
+            var left = actions?.FindAction("Overlay/Left");
+            var right = actions?.FindAction("Overlay/Right");
+            bool hasLeft = lowerHint.Refresh(left, player, pad, lower.interactable);
+            bool hasRight = higherHint.Refresh(right, player, pad, higher.interactable);
+            bool previous = hasLeft && left.WasPerformedThisFrame();
+            bool next = hasRight && right.WasPerformedThisFrame();
+            if (previous == next) return;
+            var arrow = previous ? lower : higher;
+            if (!arrow.IsInteractable()) return;
+            (previous ? lowerEdge : higherEdge).Pulse();
+            arrow.onClick.Invoke();
         }
 
         internal void RefreshRelicOffer(bool available)
@@ -249,10 +302,16 @@ namespace HoldTheLine
             CoinTerms.Quote(profit, out int stake, out int total);
             stakeCount.text = stake.ToString();
             priceText.text = $"Total return {total}\nNet profit +{profit}";
-            relicText.text = !hasThree ? "Fewer than 3 eligible relics" : coins < Wager.RelicCost
-                ? $"Choose 1 of 3 relics\nNeed {Wager.RelicCost - coins} more coins" : "Choose 1 of 3 relics";
             accept.interactable = coins >= stake && (long)coins + profit <= int.MaxValue;
             relic.interactable = hasThree && coins >= Wager.RelicCost;
+            var pricePosition = priceText.rectTransform.anchoredPosition;
+            pricePosition.y = accept.interactable ? -369f : -353f;
+            priceText.rectTransform.anchoredPosition = pricePosition;
+            coinRequirement.text = coins < stake ? NeedCoins(stake - coins)
+                : accept.interactable ? "" : "Coin pouch is full";
+            var relicCost = coins < Wager.RelicCost ? NeedCoins(Wager.RelicCost - coins) : "";
+            relicRequirement.text = hasThree ? relicCost
+                : relicCost.Length == 0 ? "Need 3 eligible relics" : relicCost + "\nNeed 3 eligible relics";
             lower.interactable = profit > 1;
             higher.interactable = CoinTerms.Quote(profit + 1, out int next, out _) && next <= coins && (long)coins + profit + 1 <= int.MaxValue;
             Button coinChoice = accept.interactable ? accept : pass;
@@ -264,6 +323,8 @@ namespace HoldTheLine
             Navigate(lower, coinChoice, higher.interactable ? higher : otherChoice, coinChoice, pass);
             Navigate(higher, lower.interactable ? lower : coinChoice, otherChoice, coinChoice, pass);
         }
+
+        private static string NeedCoins(int count) => count == 1 ? "Need 1 more coin" : $"Need {count} more coins";
 
         private static void Navigate(Button button, Button left, Button right, Button up, Button down)
         {
@@ -286,14 +347,8 @@ namespace HoldTheLine
             var pad = GamepadManager.Instance;
             int coins = ResourceManager.Instance.GetCoins();
             if (lastCoins != coins) UpdateTerms(coins);
-            var events = EventSystem.current;
-            if (!PauseMenuManger.Instance.InMenu() && events != null &&
-                (events.currentSelectedGameObject == null ||
-                 events.currentSelectedGameObject.GetComponent<Button>()?.interactable == false))
-            {
-                pad.SetGameObjectToSelect(pass.gameObject, true);
-                events.SetSelectedGameObject(pass.gameObject);
-            }
+            if (PauseMenuManger.Instance.InMenu()) return;
+            UpdateShortcuts(pad);
         }
     }
 
@@ -303,10 +358,24 @@ namespace HoldTheLine
         public void OnPointerClick(PointerEventData _) { }
     }
 
-    internal sealed class WagerCardFocus : MonoBehaviour, ISelectHandler, IDeselectHandler
+    internal sealed class WagerChoiceButton : Button
     {
-        internal Outline Frame;
-        public void OnSelect(BaseEventData _) { Frame.enabled = true; }
-        public void OnDeselect(BaseEventData _) { Frame.enabled = false; }
+        private Image face, illustration;
+        internal void SetArtwork(Image face, Image illustration)
+        {
+            this.face = face;
+            this.illustration = illustration;
+            targetGraphic = face;
+            transition = Transition.None;
+            DoStateTransition(currentSelectionState, true);
+        }
+
+        protected override void DoStateTransition(SelectionState state, bool instant)
+        {
+            if (face == null) return;
+            bool disabled = state == SelectionState.Disabled;
+            face.color = disabled ? new Color(.72f, .72f, .72f) : Color.white;
+            illustration.color = disabled ? new Color(.52f, .52f, .52f) : Color.white;
+        }
     }
 }

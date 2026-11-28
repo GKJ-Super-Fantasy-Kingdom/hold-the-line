@@ -13,14 +13,22 @@ Before battle, choose a coin wager, stake 20 coins for a relic, or pass. To win,
 ## How to Use
 
 1. With a standing Castle Wall, wait for the prebattle offer. Use the arrows or the displayed controller shortcuts on the **Coin Wager** card to adjust the stake. The counter shows how many coins you will pay. For example, a profit of 3 costs 6 coins and returns 9 total on a win.
-2. Choose **Coin Wager** or **Relic Wager** to pay the displayed stake. Choose **Pass** or press **Back** to keep your coins.
+2. Choose **Coin Wager** or **Relic Wager** to review the terms. Select **Confirm Wager** to pay the displayed stake or **Back** to return to the cards. Choose **Pass** on the card screen to skip the wager for the night.
 3. Defend the wall until the night ends. After a relic win, choose a card or select **Claim Later** to see those same choices on another morning or after Continue.
 
 ## Screenshots
 
-![Human Coin Wager at 1× with a six-coin stake and nine-coin return.](docs/screenshots/current/human-coin-wager-1x.png)
+### Wager Confirmation
 
-![Undead Relic Wager at 1.5× showing the 20-coin stake.](docs/screenshots/current/undead-relic-wager-1p5x.png)
+![Coin Wager confirmation at 1× UI scale. The card shows a six-coin stake, nine coins returned on a win, and a net profit of three.](docs/screenshots/0.2.11/coin-confirmation-1x.png)
+
+![Coin Wager confirmation at 1.5× UI scale, with Back and Confirm Wager below the card.](docs/screenshots/0.2.11/coin-confirmation-1p5x.png)
+
+![Relic Wager confirmation at 1× UI scale. The card shows a 20-coin stake and a choice of one of three relics.](docs/screenshots/0.2.11/relic-confirmation-1x.png)
+
+![Relic Wager confirmation at 1.5× UI scale, with the wall-damage rule below the card.](docs/screenshots/0.2.11/relic-confirmation-1p5x.png)
+
+### Relic Reward
 
 ![Undead relic reward picker at 1.5× with Claim Later focused.](docs/screenshots/current/undead-reward-1p5x.png)
 

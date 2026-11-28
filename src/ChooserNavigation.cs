@@ -32,6 +32,13 @@ namespace HoldTheLine
             }
         }
 
+        internal void Focus(Button button)
+        {
+            var pad = GamepadManager.Instance;
+            pad.SetGameObjectToSelect(button.gameObject, true);
+            if (keyboard && !pad.IsGamepadInUse()) EventSystem.current?.SetSelectedGameObject(button.gameObject);
+        }
+
         private void Navigate(InputAction.CallbackContext input)
         {
             if (!(input.control.device is Keyboard) ||

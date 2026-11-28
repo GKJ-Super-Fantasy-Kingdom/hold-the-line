@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace HoldTheLine
 {
-    [BepInPlugin("gkj.holdtheline", "Hold the Line", "0.2.10")]
+    [BepInPlugin("gkj.holdtheline", "Hold the Line", "0.2.11")]
     public sealed class Plugin : BaseUnityPlugin
     {
         internal static Wager Current;
@@ -134,8 +134,7 @@ namespace HoldTheLine
             if (Time.unscaledTime - readySince < .65f) return;
             var wager = Current = Wager.Open(Current, run, day);
             var choices = RelicRewards.Draw(wager);
-            card = new OfferCard(day, choices.Length == 3, profit => Accept(wager, profit),
-                () => Accept(wager, 0), () => Close(wager));
+            card = new OfferCard(day, choices.Length == 3, profit => Accept(wager, profit), () => Close(wager));
         }
 
         private void OpenClaim(Wager wager, RelicPrize prize)
@@ -208,6 +207,13 @@ namespace HoldTheLine
             if (card == null) return;
             Current?.Pass();
             card = null;
+        }
+
+        [HarmonyPatch(typeof(OverlayManager), nameof(OverlayManager.Cancel), new[] { typeof(bool) })]
+        private static class ConfirmationBack
+        {
+            private static bool Prefix(OverlayManager __instance, bool __0) =>
+                __0 || instance?.card?.HandleConfirmationBack(__instance) != true;
         }
 
         // There is no following morning on the final night. Present the earned

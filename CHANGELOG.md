@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.11
+
+- Review the selected wager card, stake and reward on the darkened battlefield before confirming. Back returns to the wager cards without spending coins.
+
 ## 0.2.10
 
 - Restore wager and relic reward persistence on Super Fantasy Kingdom 0.8.070 while retaining the 0.8.069 save hook.

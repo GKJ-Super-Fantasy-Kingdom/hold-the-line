@@ -16,26 +16,36 @@ namespace HoldTheLine
         private static readonly Lazy<Sprite> Reliquary = new Lazy<Sprite>(() => LoadArt("Relic"));
         private static readonly Lazy<Sprite> BronzeFrame = new Lazy<Sprite>(() => LoadArt("CoinFrame"));
         private static readonly Lazy<Sprite> SilverFrame = new Lazy<Sprite>(() => LoadArt("RelicFrame"));
+        private static readonly Color32 DialogInk = new Color32(46, 32, 24, 255);
+        private static readonly Color32 OfferText = new Color32(248, 233, 204, 255);
+        private static readonly Color32 OfferHeading = new Color32(255, 245, 220, 255);
         private const float CardWidth = 280f, CardHeight = 420f, Gap = 24f;
+        private const string ConfirmWager = "Confirm Wager";
+        private const string StakeInCoins = "Stake in Coins";
         private readonly UIOverlayMessage view;
         private readonly Vector2 center;
         private Vector2 viewport;
-        private readonly Button accept, pass, relic, lower, higher;
+        private readonly Button accept, pass, relic, lower, higher, confirm;
+        private readonly GameObject choices;
+        private readonly ChooserNavigation navigation;
         private readonly ChoiceEdge lowerEdge, higherEdge;
         private readonly StakeShortcutHint lowerHint, higherHint;
-        private readonly TextMeshProUGUI priceText, coinRequirement, relicRequirement;
+        private readonly RectTransform stakeControls;
+        private readonly TextMeshProUGUI stakeLabel, priceText, coinRequirement, relicRequirement;
         private readonly Text stakeCount;
         private bool hasThree;
         private int profit = 1, lastCoins = -1;
-        private readonly int opened, night;
+        private readonly int night;
+        private int enteredFrame, backFrame = -1;
+        private int? confirmationProfit;
         private bool release;
-        private readonly TextMeshProUGUI body;
+        private readonly TextMeshProUGUI body, heading, backLabel;
         internal bool Exists => view != null;
 
         private static InputSystemUIInputModule Input =>
             EventSystem.current?.currentInputModule as InputSystemUIInputModule;
 
-        internal OfferCard(int day, bool relicAvailable, Action<int> stake, Action stakeRelic, Action decline)
+        internal OfferCard(int day, bool relicAvailable, Action<int> stake, Action decline)
         {
             night = day;
             hasThree = relicAvailable;
@@ -45,58 +55,76 @@ namespace HoldTheLine
             var messagePrefab = Resources.Load<GameObject>("UI/OverlayMessage");
             ChooserPointerShield.Add(overlay, new Color32(9, 12, 19, 190));
             view = UnityEngine.Object.Instantiate(messagePrefab, overlay).GetComponent<UIOverlayMessage>();
-            view.GetComponent<Image>().enabled = false;
+            var panel = view.GetComponent<Image>();
+            panel.enabled = false;
+            panel.raycastTarget = false;
             center = ((RectTransform)view.transform).anchoredPosition;
-            FitDialog();
-            opened = Time.frameCount;
-            release = Input?.submit?.action.IsPressed() == true;
+            FitChooser();
+            GuardNextInput();
             body = view.transform.Find("Message").GetComponent<TextMeshProUGUI>();
             const float width = 2f * CardWidth + Gap;
             body.GetComponent<LayoutElement>().preferredWidth = width;
             body.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
             body.enableWordWrapping = true;
-            body.color = new Color32(248, 233, 204, 255);
+            body.raycastTarget = false;
             var layout = view.GetComponent<VerticalLayoutGroup>();
             layout.childAlignment = TextAnchor.UpperCenter;
             layout.padding = new RectOffset(0, 0, 8, 8);
             layout.spacing = 14f;
-            Heading(width);
-            view.SetMessage($"Keep the Castle Wall unharmed through Night {night}.\nAny damage costs your stake, even if repaired.");
-            view.RemoveAccept();
+            heading = Heading(width);
+            ShowOfferText();
             pass = view.transform.Find("Buttons/Cancel").GetComponent<Button>();
-            view.SetCancel("Pass", () => Invoke(decline));
-            pass.GetComponent<ContentSizeFitter>().enabled = false;
-            pass.GetComponent<VerticalLayoutGroup>().enabled = false;
-            var footerLabel = pass.transform.Find("Text").GetComponent<TextMeshProUGUI>();
-            footerLabel.rectTransform.anchorMin = Vector2.zero;
-            footerLabel.rectTransform.anchorMax = Vector2.one;
-            footerLabel.rectTransform.offsetMin = footerLabel.rectTransform.offsetMax = Vector2.zero;
-            ChooserFooter.Fit(pass, footerLabel);
+            view.SetCancel("Pass", () => Invoke(() =>
+            {
+                if (confirmationProfit.HasValue) BackToOffer();
+                else decline();
+            }));
+            backLabel = pass.transform.Find("Text").GetComponent<TextMeshProUGUI>();
+            FitFooter(pass, backLabel);
+            confirm = view.transform.Find("Buttons/BuyButton").GetComponent<Button>();
+            confirm.onClick = new Button.ButtonClickedEvent();
+            view.SetAccept(ConfirmWager, () => Invoke(() =>
+            {
+                if (confirmationProfit is int selectedProfit && confirm.IsInteractable()) stake(selectedProfit);
+            }));
+            confirm.transform.Find("Text").gameObject.SetActive(false);
+            var confirmLabel = Label(confirm.transform, ConfirmWager, 0f, 44f, 30f);
+            confirmLabel.name = "Confirm label";
+            confirmLabel.color = DialogInk;
+            confirmLabel.enableWordWrapping = false;
+            FitFooter(confirm, confirmLabel);
+            SetReviewFooter(confirm, confirmLabel, true);
+            var confirmTextRect = confirmLabel.rectTransform;
+            confirmTextRect.anchorMin = confirmTextRect.anchorMax = confirmTextRect.pivot = new Vector2(.5f, .5f);
+            confirmTextRect.anchoredPosition = Vector2.zero;
+            confirmTextRect.sizeDelta = new Vector2(214f, 40f);
+            confirm.gameObject.SetActive(false);
             var actions = pass.transform.parent.gameObject.AddComponent<HorizontalLayoutGroup>();
             actions.childAlignment = TextAnchor.MiddleCenter;
             actions.childControlWidth = actions.childControlHeight = false;
             actions.childForceExpandWidth = actions.childForceExpandHeight = false;
+            actions.spacing = Gap;
 
-            var choices = Row("Wager cards", Gap);
-            accept = Choice(choices, "Coin Wager", Treasury.Value, BronzeFrame.Value, () => stake(profit));
-            relic = Choice(choices, "Relic Wager", Reliquary.Value, SilverFrame.Value, stakeRelic);
+            choices = Row("Wager cards", Gap);
+            accept = Choice(choices, "Coin Wager", Treasury.Value, BronzeFrame.Value, () => OpenConfirmation(profit));
+            relic = Choice(choices, "Relic Wager", Reliquary.Value, SilverFrame.Value, () => OpenConfirmation(0));
 
-            Label(accept.transform, "Stake in coins", 282f, 27f, 25f);
+            stakeLabel = Label(accept.transform, StakeInCoins, 282f, 27f, 25f);
             var worker = Resources.Load<GameObject>("UI/OverlayElementWorker");
-            var amount = (RectTransform)UnityEngine.Object.Instantiate(worker.transform.Find("Amount"), accept.transform, false);
-            amount.name = "Stake";
-            Place(amount, 0f, 314f, 94f, 32f);
-            lower = Arrow(amount, "Less", -1);
-            higher = Arrow(amount, "More", 1);
+            stakeControls = (RectTransform)UnityEngine.Object.Instantiate(worker.transform.Find("Amount"), accept.transform, false);
+            stakeControls.name = "Stake";
+            Place(stakeControls, 0f, 314f, 94f, 32f);
+            lower = Arrow(stakeControls, "Less", -1);
+            higher = Arrow(stakeControls, "More", 1);
             lowerEdge = ChoiceEdge.Add(lower, ChoiceEdge.Arrow.Value, new Vector2(26f / 12f, 2f));
             higherEdge = ChoiceEdge.Add(higher, ChoiceEdge.Arrow.Value, new Vector2(26f / 12f, 2f));
             lowerHint = ArrowHint(lower, -1);
             higherHint = ArrowHint(higher, 1);
-            var box = amount.GetComponent<Image>() ?? amount.gameObject.AddComponent<Image>();
+            var box = stakeControls.GetComponent<Image>() ?? stakeControls.gameObject.AddComponent<Image>();
             box.color = new Color(.09f, .08f, .08f);
             box.raycastTarget = true;
-            amount.gameObject.AddComponent<StakeCounter>();
-            stakeCount = amount.Find("Text").GetComponent<Text>();
+            stakeControls.gameObject.AddComponent<StakeCounter>();
+            stakeCount = stakeControls.Find("Text").GetComponent<Text>();
             stakeCount.color = new Color(1f, .96f, .84f);
             stakeCount.raycastTarget = false;
             stakeCount.resizeTextForBestFit = true;
@@ -108,23 +136,115 @@ namespace HoldTheLine
             Label(relic.transform, "Choose 1 of 3 relics", 352f, 30f, 26f);
             relicRequirement = Requirement(relic.transform, 387f, 39f);
             UpdateTerms(ResourceManager.Instance.GetCoins());
-            view.gameObject.AddComponent<ChooserNavigation>().Initialize(view.transform, pass);
+            navigation = view.gameObject.AddComponent<ChooserNavigation>();
+            navigation.Initialize(view.transform, pass);
         }
 
-        private void FitDialog()
+        private static void FitFooter(Button button, TextMeshProUGUI label)
+        {
+            var fitter = button.GetComponent<ContentSizeFitter>();
+            if (fitter != null) fitter.enabled = false;
+            var layout = button.GetComponent<VerticalLayoutGroup>();
+            if (layout != null) layout.enabled = false;
+            label.rectTransform.anchorMin = Vector2.zero;
+            label.rectTransform.anchorMax = Vector2.one;
+            label.rectTransform.offsetMin = label.rectTransform.offsetMax = Vector2.zero;
+            ChooserFooter.Fit(button, label);
+        }
+
+        private static void SetReviewFooter(Button button, TextMeshProUGUI label, bool reviewing)
+        {
+            var rect = (RectTransform)button.transform;
+            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, reviewing ? 44f : 36f);
+            label.enableAutoSizing = !reviewing;
+            if (reviewing) label.fontSize = 30f;
+        }
+
+        private void ShowOfferText()
+        {
+            heading.text = "Hold the Line";
+            heading.color = OfferHeading;
+            body.color = OfferText;
+            view.SetMessage($"Keep the Castle Wall unharmed through Night {night}.\nAny damage costs your stake, even if repaired.");
+        }
+
+        private void OpenConfirmation(int selectedProfit)
+        {
+            if (confirmationProfit.HasValue) return;
+            confirmationProfit = selectedProfit;
+            GuardNextInput();
+            heading.text = "Review Wager";
+            backLabel.text = "Back";
+            SetReviewFooter(pass, backLabel, true);
+            accept.gameObject.SetActive(selectedProfit != 0);
+            relic.gameObject.SetActive(selectedProfit == 0);
+            var selected = selectedProfit == 0 ? relic : accept;
+            // The card remains visible for review. Only the footer can act.
+            selected.enabled = false;
+            selected.targetGraphic.raycastTarget = false;
+            selected.GetComponent<ChoiceEdge>().enabled = false;
+            choices.transform.SetSiblingIndex(body.transform.GetSiblingIndex());
+            stakeControls.gameObject.SetActive(false);
+            SetStakeLabelPosition(308f, 46f);
+            confirm.gameObject.SetActive(true);
+            UpdateTerms(ResourceManager.Instance.GetCoins());
+            navigation.Focus(pass);
+        }
+
+        private void BackToOffer()
+        {
+            var source = confirmationProfit == 0 ? relic : accept;
+            confirmationProfit = null;
+            backFrame = Time.frameCount;
+            GuardNextInput();
+            ShowOfferText();
+            backLabel.text = "Pass";
+            SetReviewFooter(pass, backLabel, false);
+            confirm.gameObject.SetActive(false);
+            source.enabled = true;
+            source.targetGraphic.raycastTarget = true;
+            source.GetComponent<ChoiceEdge>().enabled = true;
+            accept.gameObject.SetActive(true);
+            relic.gameObject.SetActive(true);
+            body.transform.SetSiblingIndex(choices.transform.GetSiblingIndex());
+            stakeControls.gameObject.SetActive(true);
+            stakeLabel.text = StakeInCoins;
+            SetStakeLabelPosition(282f, 27f);
+            UpdateTerms(ResourceManager.Instance.GetCoins());
+            navigation.Focus(source.IsInteractable() ? source : pass);
+        }
+
+        private void SetStakeLabelPosition(float y, float height)
+        {
+            var rect = stakeLabel.rectTransform;
+            rect.anchoredPosition = new Vector2(0f, -y);
+            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+        }
+
+        internal bool HandleConfirmationBack(OverlayManager overlays)
+        {
+            if (view == null || !view.gameObject.activeInHierarchy || !overlays.IsOpen() ||
+                view.transform.parent != overlays.GetOverlayEmpty() || PauseMenuManger.Instance.InMenu()) return false;
+            if (backFrame == Time.frameCount) return true;
+            if (!confirmationProfit.HasValue) return false;
+            if (Time.frameCount != enteredFrame) BackToOffer();
+            return true;
+        }
+
+        private void FitChooser()
         {
             float uiScale = SettingsManager.Instance.GetUIScaling();
             var available = new Vector2(Screen.width, Screen.height) / uiScale;
             if (available == viewport) return;
             viewport = available;
-            // Fit both portrait cards, the common dialog controls, and the resource HUD.
+            // Fit the portrait cards and footers with room for the resource HUD.
             float scale = Mathf.Min(1f, available.x / (CardWidth * 2 + Gap + 80f), available.y / 756f);
             var rect = (RectTransform)view.transform;
             rect.localScale = Vector3.one * scale;
             rect.anchoredPosition = center + Vector2.down * (32f * scale);
         }
 
-        private void Heading(float width)
+        private TextMeshProUGUI Heading(float width)
         {
             var title = Label(view.transform, "Hold the Line", 0f, 52f, 42f);
             title.name = "Wager heading";
@@ -133,6 +253,7 @@ namespace HoldTheLine
             var size = title.gameObject.AddComponent<LayoutElement>();
             size.preferredWidth = width;
             size.minHeight = size.preferredHeight = 52f;
+            return title;
         }
 
         private GameObject Row(string name, float spacing)
@@ -231,7 +352,7 @@ namespace HoldTheLine
             var rect = (RectTransform)button.transform;
             Place(rect, step * 66f, 16f, 26f, 32f);
             button.onClick = new Button.ButtonClickedEvent();
-            button.onClick.AddListener(() => Invoke(() => Adjust(step)));
+            button.onClick.AddListener(() => Invoke(() => { if (!confirmationProfit.HasValue) Adjust(step); }));
             return button;
         }
 
@@ -298,10 +419,15 @@ namespace HoldTheLine
         private void UpdateTerms(int coins)
         {
             lastCoins = coins;
+            if (confirmationProfit is int selectedProfit)
+            {
+                UpdateConfirmation(selectedProfit, coins);
+                return;
+            }
             while (profit > 1 && CoinTerms.Quote(profit, out int cost, out _) && cost > coins) profit--;
             CoinTerms.Quote(profit, out int stake, out int total);
             stakeCount.text = stake.ToString();
-            priceText.text = $"Total return {total}\nNet profit +{profit}";
+            priceText.text = $"Total Return {total}\nNet Profit +{profit}";
             accept.interactable = coins >= stake && (long)coins + profit <= int.MaxValue;
             relic.interactable = hasThree && coins >= Wager.RelicCost;
             var pricePosition = priceText.rectTransform.anchoredPosition;
@@ -324,6 +450,26 @@ namespace HoldTheLine
             Navigate(higher, lower.interactable ? lower : coinChoice, otherChoice, coinChoice, pass);
         }
 
+        private void UpdateConfirmation(int selectedProfit, int coins)
+        {
+            int stake = Wager.RelicCost;
+            string requirement = hasThree ? "" : "Need 3 eligible relics";
+            if (selectedProfit != 0)
+            {
+                CoinTerms.Quote(selectedProfit, out stake, out int total);
+                stakeLabel.text = stake == 1 ? "Stake 1 coin" : $"Stake {stake} coins";
+                priceText.text = $"Total Return {total}\nNet Profit +{selectedProfit}";
+                requirement = (long)coins + selectedProfit <= int.MaxValue ? "" : "Coin pouch is full";
+            }
+            if (coins < stake) requirement = NeedCoins(stake - coins);
+            view.SetMessage($"Keep the Castle Wall unharmed through Night {night}.\nAny damage costs your stake, even if repaired." +
+                (requirement.Length == 0 ? "" : "\n" + requirement));
+            confirm.interactable = requirement.Length == 0;
+            var target = confirm.IsInteractable() ? confirm : pass;
+            Navigate(pass, target, target, target, target);
+            Navigate(confirm, pass, pass, pass, pass);
+        }
+
         private static string NeedCoins(int count) => count == 1 ? "Need 1 more coin" : $"Need {count} more coins";
 
         private static void Navigate(Button button, Button left, Button right, Button up, Button down)
@@ -332,22 +478,28 @@ namespace HoldTheLine
                 selectOnRight = right, selectOnUp = up, selectOnDown = down };
         }
 
+        private void GuardNextInput()
+        {
+            enteredFrame = Time.frameCount;
+            release = Input?.submit?.action.IsPressed() == true;
+        }
+
         private void Invoke(Action action)
         {
-            if (view != null && view.gameObject.activeInHierarchy && !release && Time.frameCount != opened)
+            if (view != null && view.gameObject.activeInHierarchy && !release && Time.frameCount != enteredFrame)
                 action();
         }
 
         internal void Refresh()
         {
             if (view == null || !view.gameObject.activeInHierarchy) return;
-            FitDialog();
+            FitChooser();
             var input = Input;
             if (release && input?.submit?.action.IsPressed() != true) release = false;
             var pad = GamepadManager.Instance;
             int coins = ResourceManager.Instance.GetCoins();
             if (lastCoins != coins) UpdateTerms(coins);
-            if (PauseMenuManger.Instance.InMenu()) return;
+            if (confirmationProfit.HasValue || PauseMenuManger.Instance.InMenu()) return;
             UpdateShortcuts(pad);
         }
     }
